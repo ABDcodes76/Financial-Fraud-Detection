@@ -381,5 +381,131 @@ def get_custom_css() -> str:
             color: #64748b;
             letter-spacing: 0.03em;
         }
+
+        /* Dual Meter Grid */
+        .dual-meter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* ================= MOBILE & TABLET RESPONSIVENESS ================= */
+        @media (max-width: 992px) {
+            .main .block-container {
+                padding-top: 1rem !important;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+                padding-bottom: 2.5rem !important;
+            }
+            .academic-banner {
+                padding: 16px 18px !important;
+            }
+            .academic-title {
+                font-size: 1.25rem !important;
+            }
+            .metric-value {
+                font-size: 1.5rem !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            /* Full mobile responsive layout */
+            .main .block-container {
+                padding: 0.8rem 0.6rem 2rem 0.6rem !important;
+            }
+            
+            /* Banner collapses to mobile card */
+            .academic-banner {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                padding: 14px 16px !important;
+                gap: 10px !important;
+            }
+            .academic-title {
+                font-size: 1.15rem !important;
+                line-height: 1.3 !important;
+            }
+            .academic-subtitle {
+                font-size: 0.78rem !important;
+            }
+            .academic-badge {
+                align-self: flex-start !important;
+                font-size: 0.68rem !important;
+                padding: 4px 10px !important;
+            }
+
+            /* Metric / KPI Cards on mobile */
+            .metric-card {
+                padding: 14px 16px !important;
+                margin-bottom: 10px !important;
+            }
+            .metric-title {
+                font-size: 0.68rem !important;
+            }
+            .metric-value {
+                font-size: 1.35rem !important;
+            }
+            .metric-sub {
+                font-size: 0.7rem !important;
+            }
+
+            /* Dual Meter Grid collapses to single column on mobile */
+            .dual-meter-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+            }
+
+            /* Risk Assessment Container */
+            .risk-assessment-container {
+                padding: 16px 14px !important;
+            }
+            .badge-low, .badge-medium, .badge-high {
+                font-size: 0.95rem !important;
+                padding: 6px 12px !important;
+            }
+
+            /* Tables with smooth horizontal touch scroll */
+            div[data-testid="stDataFrame"], div[data-testid="stTable"], .dataframe {
+                width: 100% !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+
+            /* Buttons and Form inputs touch-friendly */
+            div[data-testid="stHorizontalBlock"] .stButton > button {
+                font-size: 0.8rem !important;
+                padding: 10px 8px !important;
+                margin-bottom: 8px !important;
+            }
+            button[kind="primaryFormSubmit"], div.stButton > button[kind="primary"] {
+                font-size: 0.95rem !important;
+                padding: 10px 16px !important;
+                width: 100% !important;
+            }
+
+            /* Indicator Explainability Boxes */
+            .indicator-box {
+                padding: 10px 14px !important;
+            }
+
+            /* Footer */
+            .finsec-footer {
+                margin-top: 30px !important;
+                font-size: 0.7rem !important;
+                padding: 15px 0 !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .academic-title {
+                font-size: 1.05rem !important;
+            }
+            .metric-value {
+                font-size: 1.2rem !important;
+            }
+            .brand-name {
+                font-size: 1.15rem !important;
+            }
+        }
     </style>
     """

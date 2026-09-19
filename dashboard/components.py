@@ -54,7 +54,7 @@ def render_risk_summary(risk_level: str, fraud_prob_pct: float, anomaly_score_pc
                 </span>
             </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="dual-meter-grid">
             <div style="background: rgba(13, 20, 36, 0.7); padding: 16px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                     <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Supervised Fraud Probability:</span>
