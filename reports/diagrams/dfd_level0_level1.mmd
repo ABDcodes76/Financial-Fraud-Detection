@@ -1,0 +1,15 @@
+graph LR
+    subgraph Level 0: Context Diagram
+        User[Financial Analyst / User] -->|Submit Transaction Details| System[Financial Fraud & Anomaly System]
+        System -->|Risk Assessment & Explainability Report| User
+        Dataset[(PaySim Transactions Store)] -->|Historical Data| System
+    end
+
+    subgraph Level 1: Data Flow Decomposition
+        P1[1.0 Data Ingestion & Preprocessing] -->|Cleaned DataFrame| P2[2.0 Feature Engineering]
+        P2 -->|Engineered Vectors| P3[3.0 Fraud Classification]
+        P2 -->|Behavioral Features| P4[4.0 Anomaly Detection]
+        P3 -->|P_Fraud| P5[5.0 Composite Risk Scorer]
+        P4 -->|Anomaly_Score| P5
+        P5 -->|Risk Level + Indicators| P6[6.0 Visualization & Reporting]
+    end

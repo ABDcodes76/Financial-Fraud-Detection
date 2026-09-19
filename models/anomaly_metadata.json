@@ -1,0 +1,12 @@
+{
+    "total_transactions": 60000,
+    "total_anomalies": 1800,
+    "anomaly_percentage": 3.0,
+    "contamination": 0.03,
+    "fraud_overlap_count": 224,
+    "total_frauds": 630,
+    "fraud_overlap_rate": 35.56,
+    "score_mean": 0.1576,
+    "score_std": 0.1478,
+    "training_time_seconds": 1.58
+}

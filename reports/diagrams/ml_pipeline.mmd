@@ -1,0 +1,21 @@
+flowchart TD
+    A[Raw Dataset: 60,000 Transactions] --> B[Data Cleaning & Null Handling]
+    B --> C[Feature Engineering: 23 Domain Features]
+    C --> D[Stratified Split 80/20]
+    
+    D -->|48,000 Train Rows| E1[Logistic Regression with Class Weights]
+    D -->|48,000 Train Rows| E2[Random Forest: 100 Trees, Balanced]
+    D -->|48,000 Train Rows| E3[XGBoost: Scale Pos Weight 94.2]
+    
+    C -->|Unsupervised Subset| F1[Isolation Forest Contamination 3%]
+    
+    D -->|12,000 Test Rows| G1[Evaluate LR]
+    D -->|12,000 Test Rows| G2[Evaluate RF]
+    D -->|12,000 Test Rows| G3[Evaluate XGB]
+    
+    G1 & G2 & G3 --> H[Model Benchmarking: F1, Recall, PR-AUC]
+    H --> I[Select Winner: Random Forest F1 93.8%, PR-AUC 0.981]
+    
+    I --> J[Save fraud_model.pkl]
+    F1 --> K[Save anomaly_model.pkl]
+    C --> L[Save preprocessing.pkl]

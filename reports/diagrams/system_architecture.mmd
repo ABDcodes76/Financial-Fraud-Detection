@@ -1,0 +1,35 @@
+graph TD
+    subgraph Data Layer
+        A[Financial Transaction Stream / CSV] --> B[Data Cleaning & Integrity Engine]
+        B --> C[Missing Values & Outlier Sanitization]
+    end
+
+    subgraph Feature Engineering
+        C --> D[Balance Discrepancy Calculator]
+        C --> E[Account Drain Flag Detector]
+        C --> F[Temporal & Log Transformations]
+        D & E & F --> G[23-Dimensional Feature Matrix]
+    end
+
+    subgraph Analytics & Modeling Layer
+        G --> H[Supervised Classifiers: RF / XGBoost / LR]
+        G --> I[Unsupervised Isolation Forest]
+        H --> J[Fraud Probability Estimation P_Fraud]
+        I --> K[Behavioral Anomaly Score A_Score]
+    end
+
+    subgraph Decision & Explainability Layer
+        J & K --> L[Tri-Tier Composite Risk Matrix: LOW / MED / HIGH]
+        L --> M[Rule-Based Explainability Engine]
+        M --> N[Audit Diagnostics & Severity Indicators]
+    end
+
+    subgraph Presentation Layer
+        N --> O[Interactive Streamlit Dashboard]
+        O --> P1[Overview & KPI Cards]
+        O --> P2[Transaction Analytics]
+        O --> P3[Fraud Analysis & Drain Patterns]
+        O --> P4[Anomaly Outlier Visualizer]
+        O --> P5[Real-Time Transaction Predictor]
+        O --> P6[Model Performance & PR/ROC Curves]
+    end

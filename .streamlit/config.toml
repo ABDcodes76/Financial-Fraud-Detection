@@ -1,0 +1,16 @@
+[server]
+headless = false
+port = 8501
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#00f2fe"
+backgroundColor = "#0b0f19"
+secondaryBackgroundColor = "#111827"
+textColor = "#f1f5f9"
+font = "sans serif"
