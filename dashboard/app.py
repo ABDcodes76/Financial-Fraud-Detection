@@ -1,5 +1,6 @@
 import sys
 import os
+import datetime
 from pathlib import Path
 
 # Add project root to sys.path
@@ -22,6 +23,9 @@ from dashboard.components import (
 from src.utils import load_json, get_data_path
 from src.data_preprocessing import load_dataset, clean_data
 from src.prediction import TransactionPredictor
+from src.dataset_validator import validate_dataset, generate_sample_template
+from src.bulk_prediction import BulkPredictionEngine
+from src.report_generator import generate_pdf_report
 
 # Page Configuration
 st.set_page_config(
@@ -82,11 +86,12 @@ nav_page = st.sidebar.radio(
     [
         "01  Overview",
         "02  Transaction Analytics",
-        "03  Fraud Analysis",
-        "04  Anomaly Detection",
-        "05  Transaction Prediction",
-        "06  Model Performance",
-        "07  About Project"
+        "03  Upload & Analyze Dataset",
+        "04  Fraud Analysis",
+        "05  Anomaly Detection",
+        "06  Transaction Prediction",
+        "07  Model Performance",
+        "08  About Project"
     ]
 )
 
@@ -213,8 +218,339 @@ elif "02  Transaction Analytics" in nav_page:
             mime="text/csv"
         )
 
-# ----------------- PAGE 3: FRAUD ANALYSIS ----------------- #
-elif "03  Fraud Analysis" in nav_page:
+# ----------------- PAGE 3: UPLOAD & ANALYZE DATASET ----------------- #
+elif "03  Upload & Analyze Dataset" in nav_page:
+    render_banner(
+        "Upload & Analyze Transaction Dataset",
+        "High-throughput batch ML risk scoring, multi-tier classification, and forensic PDF reporting",
+        badge="BATCH ML SURVEILLANCE"
+    )
+    
+    # 1. Guidelines & Sample Download Header Card
+    with st.expander("ℹ️ Dataset Schema Specifications & CSV Template Instructions", expanded=False):
+        st.markdown("""
+        <div style="background: rgba(15, 23, 42, 0.6); padding: 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.85rem; color: #cbd5e1;">
+            <b>Required Transaction Ledger Schema:</b><br/>
+            • <code>step</code>: Integer simulation hour (1 - 744)<br/>
+            • <code>type</code>: Transaction channel (<code>TRANSFER</code>, <code>CASH_OUT</code>, <code>PAYMENT</code>, <code>CASH_IN</code>, <code>DEBIT</code>)<br/>
+            • <code>amount</code>: Transaction amount in USD ($)<br/>
+            • <code>oldbalanceOrg</code>: Sender initial balance before transaction<br/>
+            • <code>newbalanceOrig</code>: Sender subsequent balance after transaction<br/>
+            • <code>oldbalanceDest</code>: Recipient initial balance before transaction<br/>
+            • <code>newbalanceDest</code>: Recipient subsequent balance after transaction<br/>
+            <br/>
+            <b>Optional Columns:</b> <code>nameOrig</code>, <code>nameDest</code>, <code>isFraud</code> (ground-truth label for evaluation benchmark), <code>isFlaggedFraud</code>.
+        </div>
+        """, unsafe_allow_html=True)
+        
+    # Sample Template Download Action
+    sample_template_df = generate_sample_template()
+    sample_csv_bytes = sample_template_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Download Sample CSV Template",
+        data=sample_csv_bytes,
+        file_name="sample_transactions_template.csv",
+        mime="text/csv",
+        help="Download a pre-formatted 10-row template with both normal and fraud cases."
+    )
+    
+    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+    
+    # 2. File Uploader
+    uploaded_file = st.file_uploader(
+        "Upload Financial Transaction Dataset (CSV format)",
+        type=["csv"],
+        help="Upload CSV files containing raw transactions. Maximum recommended size for browser processing: 50,000 rows."
+    )
+    
+    if uploaded_file is not None:
+        with st.spinner("Validating dataset structure and schema integrity..."):
+            validation = validate_dataset(uploaded_file)
+            
+        if not validation.is_valid:
+            st.error(f"❌ Schema Validation Failed: {len(validation.error_messages)} issue(s) detected.")
+            for err in validation.error_messages:
+                st.markdown(f"- 🔴 **Error:** {err}")
+            st.warning("Please download the standard sample CSV template above and ensure all required column headers match exactly.")
+        else:
+            # Validation Success Panel
+            st.success(f"✅ Schema Validation Passed! Successfully verified **{validation.row_count:,}** rows with **{validation.col_count}** columns.")
+            
+            # Show warnings if any
+            if validation.warning_messages:
+                with st.expander("⚠️ Data Sanitization & Cleaning Audit Logs", expanded=False):
+                    for w in validation.warning_messages:
+                        st.info(f"• {w}")
+                        
+            # Raw Data Preview
+            with st.expander("🔍 Ingested Dataset Preview (First 10 Rows)", expanded=False):
+                st.dataframe(validation.cleaned_df.head(10), use_container_width=True)
+                
+            # Trigger Batch ML Surveillance
+            run_analysis = st.button("🚀 RUN FULL FRAUD SURVEILLANCE & RISK ANALYSIS", use_container_width=True)
+            
+            # Check if analysis is stored in session state for this file
+            file_key = f"batch_analysis_{uploaded_file.name}_{validation.row_count}"
+            
+            if run_analysis or file_key in st.session_state:
+                if run_analysis or file_key not in st.session_state:
+                    with st.spinner("Executing dual-engine feature extraction, supervised scoring, and anomaly detection..."):
+                        engine = BulkPredictionEngine()
+                        analyzed_df = engine.analyze_dataset(validation.cleaned_df)
+                        batch_kpis = engine.compute_summary_kpis(analyzed_df)
+                        st.session_state[file_key] = {
+                            "analyzed_df": analyzed_df,
+                            "kpis": batch_kpis,
+                            "validation": validation
+                        }
+                
+                cache_payload = st.session_state[file_key]
+                analyzed_df = cache_payload["analyzed_df"]
+                kpis = cache_payload["kpis"]
+                
+                st.markdown("---")
+                st.markdown("### 📊 Batch Surveillance Diagnostics & Intelligence Summary")
+                
+                # 6 Top-Level KPI Cards
+                k1, k2, k3, k4, k5, k6 = st.columns(6)
+                with k1:
+                    render_kpi("Audited Volume", f"{kpis['total_records']:,}", "Transactions scanned", icon="🌐")
+                with k2:
+                    render_kpi("Settled Amount", f"${kpis['total_volume']/1e6:,.2f}M" if kpis['total_volume'] >= 1e6 else f"${kpis['total_volume']:,.0f}", "Gross capital", icon="💳")
+                with k3:
+                    render_kpi("Fraud Cases", f"{kpis['predicted_fraud_count']:,}", f"{kpis['predicted_fraud_pct']:.2f}% flagged rate", icon="🚨")
+                with k4:
+                    render_kpi("Anomalies", f"{kpis['anomalies_count']:,}", f"{kpis['anomalies_pct']:.2f}% out-of-distribution", icon="🔍")
+                with k5:
+                    render_kpi("High-Risk Exposure", f"${kpis['high_risk_volume']/1e6:,.2f}M" if kpis['high_risk_volume'] >= 1e6 else f"${kpis['high_risk_volume']:,.0f}", f"{kpis['high_risk_pct']:.1f}% of total rows", icon="⚡")
+                with k6:
+                    model_label = "Supervised Dual-ML"
+                    render_kpi("Engine Baseline", model_label, "Random Forest + IF", icon="🛡️")
+                    
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Visualizations Grid (2x2)
+                row1_c1, row1_c2 = st.columns(2)
+                
+                with row1_c1:
+                    # Risk Distribution Pie/Donut Chart
+                    risk_counts = pd.DataFrame({
+                        "Tier": ["HIGH RISK", "MEDIUM RISK", "LOW RISK"],
+                        "Count": [kpis.get("high_risk_count", 0), kpis.get("medium_risk_count", 0), kpis.get("low_risk_count", 0)]
+                    })
+                    fig_risk = px.pie(
+                        risk_counts, values='Count', names='Tier',
+                        title="Multi-Tier Risk Stratification Breakdown",
+                        hole=0.5,
+                        color='Tier',
+                        color_discrete_map={
+                            "HIGH RISK": "#ef4444",
+                            "MEDIUM RISK": "#f59e0b",
+                            "LOW RISK": "#10b981"
+                        }
+                    )
+                    fig_risk.update_layout(
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(15, 23, 42, 0.5)",
+                        font=dict(family="Inter, sans-serif", color="#cbd5e1", size=11),
+                        margin=dict(t=45, b=25, l=25, r=25),
+                        height=330,
+                        legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+                    )
+                    st.plotly_chart(fig_risk, use_container_width=True)
+                    
+                with row1_c2:
+                    # Supervised Fraud vs Normal Bar Chart
+                    pred_counts = pd.DataFrame({
+                        "Classification": ["Normal", "Potentially Fraudulent"],
+                        "Count": [kpis["total_records"] - kpis["predicted_fraud_count"], kpis["predicted_fraud_count"]]
+                    })
+                    fig_pred = px.bar(
+                        pred_counts, x="Classification", y="Count",
+                        title="Supervised Classification Distribution (Threshold >= 0.50)",
+                        color="Classification",
+                        color_discrete_map={"Normal": "#38bdf8", "Potentially Fraudulent": "#ef4444"},
+                        text_auto=True
+                    )
+                    fig_pred.update_layout(
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(15, 23, 42, 0.5)",
+                        font=dict(family="Inter, sans-serif", color="#cbd5e1", size=11),
+                        margin=dict(t=45, b=25, l=25, r=25),
+                        height=330,
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig_pred, use_container_width=True)
+                    
+                row2_c1, row2_c2 = st.columns(2)
+                
+                with row2_c1:
+                    # Anomaly & Risk Scatter Plot
+                    scatter_sample = analyzed_df.sample(min(1500, len(analyzed_df)), random_state=42).copy() if len(analyzed_df) > 1500 else analyzed_df.copy()
+                    scatter_sample['orig_balance_diff'] = scatter_sample['oldbalanceOrg'] - scatter_sample['newbalanceOrig']
+                    
+                    fig_scat = px.scatter(
+                        scatter_sample,
+                        x="amount",
+                        y="orig_balance_diff",
+                        color="risk_level",
+                        symbol="anomaly_status",
+                        title="Behavioral Outlier & Anomaly Scatter Space",
+                        labels={"amount": "Transaction Amount ($)", "orig_balance_diff": "Origin Balance Change ($)"},
+                        color_discrete_map={"HIGH": "#ef4444", "MEDIUM": "#f59e0b", "LOW": "#10b981"},
+                        hover_data=["type", "fraud_probability_pct", "anomaly_score_pct"]
+                    )
+                    fig_scat.update_layout(
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(15, 23, 42, 0.5)",
+                        font=dict(family="Inter, sans-serif", color="#cbd5e1", size=11),
+                        margin=dict(t=45, b=25, l=25, r=25),
+                        height=330
+                    )
+                    st.plotly_chart(fig_scat, use_container_width=True)
+                    
+                with row2_c2:
+                    # Channel Fraud Breakdown
+                    ch_df = pd.DataFrame([
+                        {"Channel": k, "Total Volume": v["volume"], "Fraud Count": v["fraud_count"], "Fraud Rate (%)": v["fraud_rate"]}
+                        for k, v in kpis.get("channel_summary", {}).items()
+                    ])
+                    fig_ch = px.bar(
+                        ch_df, x="Channel", y="Fraud Count",
+                        title="Channel Fraud Incursion Concentration",
+                        color="Channel",
+                        text_auto=True
+                    )
+                    fig_ch.update_layout(
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(15, 23, 42, 0.5)",
+                        font=dict(family="Inter, sans-serif", color="#cbd5e1", size=11),
+                        margin=dict(t=45, b=25, l=25, r=25),
+                        height=330,
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig_ch, use_container_width=True)
+                    
+                # Conditional Ground Truth Evaluation Section
+                if validation.has_ground_truth and "evaluation" in kpis:
+                    st.markdown("---")
+                    st.markdown("### 🎯 Supervised Ground-Truth Verification Benchmark")
+                    st.info("💡 **Ground Truth Detected (`isFraud` column found):** Computing empirical model validation performance metrics on uploaded test batch.")
+                    
+                    ev = kpis["evaluation"]
+                    cm = ev["confusion_matrix"]
+                    
+                    e1, e2, e3, e4, e5 = st.columns(5)
+                    with e1:
+                        render_kpi("Accuracy", f"{ev['accuracy']*100:.2f}%", "Overall correctness", icon="🎯")
+                    with e2:
+                        render_kpi("Precision", f"{ev['precision']*100:.2f}%", "TP / (TP + FP)", icon="✨")
+                    with e3:
+                        render_kpi("Recall", f"{ev['recall']*100:.2f}%", "TP / (TP + FN)", icon="⚡")
+                    with e4:
+                        render_kpi("F1-Score", f"{ev['f1_score']:.4f}", "Harmonic mean", icon="🏆")
+                    with e5:
+                        render_kpi("ROC-AUC", f"{ev['roc_auc']:.4f}", "Discrimination power", icon="📈")
+                        
+                    # Confusion Matrix Display
+                    cm_col1, cm_col2 = st.columns([1.2, 1.8])
+                    with cm_col1:
+                        z_matrix = [[cm['tn'], cm['fp']], [cm['fn'], cm['tp']]]
+                        fig_cm = px.imshow(
+                            z_matrix,
+                            labels=dict(x="Predicted Label", y="Actual Label", color="Transactions"),
+                            x=['Normal (0)', 'Fraud (1)'],
+                            y=['Normal (0)', 'Fraud (1)'],
+                            color_continuous_scale=[[0, '#0f172a'], [0.5, '#0284c7'], [1, '#ef4444']],
+                            text_auto=True,
+                            title="Confusion Matrix Heatmap"
+                        )
+                        fig_cm.update_layout(
+                            template="plotly_dark",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(15, 23, 42, 0.5)",
+                            font=dict(family="Inter, sans-serif", color="#cbd5e1", size=11),
+                            margin=dict(t=45, b=25, l=25, r=25),
+                            height=280
+                        )
+                        st.plotly_chart(fig_cm, use_container_width=True)
+                        
+                    with cm_col2:
+                        st.markdown(f"""
+                        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 16px; margin-top: 25px;">
+                            <div style="font-weight: 700; color: #38bdf8; margin-bottom: 8px;">Confusion Matrix Diagnostics:</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.82rem;">
+                                <div>• <b>True Positives (TP):</b> <span style="color:#ef4444; font-weight:700;">{cm['tp']:,}</span> (Correctly flagged frauds)</div>
+                                <div>• <b>False Positives (FP):</b> <span style="color:#f59e0b; font-weight:700;">{cm['fp']:,}</span> (Normal flagged as fraud)</div>
+                                <div>• <b>True Negatives (TN):</b> <span style="color:#10b981; font-weight:700;">{cm['tn']:,}</span> (Correctly cleared normal)</div>
+                                <div>• <b>False Negatives (FN):</b> <span style="color:#ec4899; font-weight:700;">{cm['fn']:,}</span> (Missed fraud cases)</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                # High-Risk Ledger Table & Explorer
+                st.markdown("---")
+                st.markdown("### 📋 Analyzed Ledger & Risk Explorer")
+                
+                tier_filter = st.selectbox(
+                    "Filter Ledger by Risk Stratification Tier:",
+                    options=["ALL TRANSACTIONS", "HIGH RISK ONLY", "MEDIUM RISK ONLY", "LOW RISK ONLY", "PREDICTED FRAUD ONLY"],
+                    index=0
+                )
+                
+                if tier_filter == "HIGH RISK ONLY":
+                    view_df = analyzed_df[analyzed_df['risk_level'] == 'HIGH']
+                elif tier_filter == "MEDIUM RISK ONLY":
+                    view_df = analyzed_df[analyzed_df['risk_level'] == 'MEDIUM']
+                elif tier_filter == "LOW RISK ONLY":
+                    view_df = analyzed_df[analyzed_df['risk_level'] == 'LOW']
+                elif tier_filter == "PREDICTED FRAUD ONLY":
+                    view_df = analyzed_df[analyzed_df['fraud_prediction'] == 'Fraud']
+                else:
+                    view_df = analyzed_df
+                    
+                display_cols = [
+                    'step', 'type', 'amount', 'oldbalanceOrg', 'newbalanceOrig',
+                    'fraud_probability_pct', 'anomaly_status', 'risk_level', 'primary_indicator'
+                ]
+                if 'isFraud' in analyzed_df.columns:
+                    display_cols.insert(5, 'isFraud')
+                    
+                st.dataframe(view_df[display_cols].head(100), use_container_width=True)
+                st.caption(f"Displaying top {min(100, len(view_df))} of {len(view_df):,} filtered transactions.")
+                
+                # Download Center (Analyzed CSV + Forensic PDF)
+                st.markdown("---")
+                st.markdown("### 📥 Export & Forensic Download Center")
+                
+                d_col1, d_col2 = st.columns(2)
+                
+                with d_col1:
+                    analyzed_csv = analyzed_df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Download Complete Analyzed Dataset (CSV)",
+                        data=analyzed_csv,
+                        file_name=f"FINSEC_Analyzed_{uploaded_file.name}",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                    
+                with d_col2:
+                    pdf_bytes = generate_pdf_report(analyzed_df, validation, kpis)
+                    st.download_button(
+                        label="📄 Download Forensic Audit Report (PDF)",
+                        data=pdf_bytes,
+                        file_name=f"FINSEC_Audit_Report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+
+# ----------------- PAGE 4: FRAUD ANALYSIS ----------------- #
+elif "04  Fraud Analysis" in nav_page:
     render_banner(
         "Supervised Fraud Investigation & Drain Vectors",
         "Detailed behavioral analysis of confirmed fraudulent incursions, channel vulnerability, and account siphoning",
@@ -274,8 +610,8 @@ elif "03  Fraud Analysis" in nav_page:
             use_container_width=True
         )
 
-# ----------------- PAGE 4: ANOMALY DETECTION ----------------- #
-elif "04  Anomaly Detection" in nav_page:
+# ----------------- PAGE 5: ANOMALY DETECTION ----------------- #
+elif "05  Anomaly Detection" in nav_page:
     render_banner(
         "Unsupervised Anomaly Detection (Isolation Forest)",
         "Out-of-distribution geometric outlier detection identifying abnormal patterns without supervisory labels",
@@ -319,8 +655,8 @@ elif "04  Anomaly Detection" in nav_page:
             
         st.plotly_chart(plot_anomaly_scatter(sample_df), use_container_width=True)
 
-# ----------------- PAGE 5: TRANSACTION PREDICTION ----------------- #
-elif "05  Transaction Prediction" in nav_page:
+# ----------------- PAGE 6: TRANSACTION PREDICTION ----------------- #
+elif "06  Transaction Prediction" in nav_page:
     render_banner(
         "Real-Time Transaction Risk Assessment Engine",
         "Dual-engine inference combining supervised fraud probability, Isolation Forest anomaly scoring, and explainable indicators",
@@ -426,8 +762,8 @@ elif "05  Transaction Prediction" in nav_page:
             )
             render_explainability(result["risk_indicators"])
 
-# ----------------- PAGE 6: MODEL PERFORMANCE ----------------- #
-elif "06  Model Performance" in nav_page:
+# ----------------- PAGE 7: MODEL PERFORMANCE ----------------- #
+elif "07  Model Performance" in nav_page:
     render_banner(
         "Academic Model Performance & Benchmarking",
         "Empirical benchmarking on held-out test data (20% stratified holdout: 12,000 samples, 126 frauds)",
@@ -475,8 +811,8 @@ elif "06  Model Performance" in nav_page:
         </div>
         """, unsafe_allow_html=True)
 
-# ----------------- PAGE 7: ABOUT PROJECT ----------------- #
-elif "07  About Project" in nav_page:
+# ----------------- PAGE 8: ABOUT PROJECT ----------------- #
+elif "08  About Project" in nav_page:
     render_banner(
         "Academic Project Profile & System Architecture",
         "Gujarat Technological University (GTU) • BE Computer Engineering Semester 7 • InfoLabz IT Services Pvt. Ltd.",

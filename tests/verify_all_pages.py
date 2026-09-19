@@ -13,6 +13,9 @@ import plotly.graph_objects as go
 from src.utils import load_json
 from src.data_preprocessing import load_dataset, clean_data, get_eda_summary
 from src.prediction import TransactionPredictor
+from src.dataset_validator import validate_dataset, generate_sample_template
+from src.bulk_prediction import BulkPredictionEngine
+from src.report_generator import generate_pdf_report
 from dashboard.components import (
     render_kpi, render_risk_summary, render_explainability,
     plot_transaction_types, plot_amount_distribution, plot_fraud_by_type,
@@ -21,7 +24,7 @@ from dashboard.components import (
 )
 
 def verify_all_pages():
-    print("--- STARTING END-TO-END VERIFICATION OF ALL 7 DASHBOARD PAGES ---")
+    print("--- STARTING END-TO-END VERIFICATION OF ALL 8 DASHBOARD PAGES ---")
     
     # Ingestion
     raw_df = load_dataset()
@@ -49,15 +52,29 @@ def verify_all_pages():
     df_f = df[(df['type'].isin(['TRANSFER', 'CASH_OUT'])) & (df['amount'] <= 500000)]
     assert len(df_f) > 0
     print("  -> Page 2 verified successfully.")
+
+    # 3. Upload & Analyze Dataset Page (NEW)
+    print("[Verifying Page 3: Upload & Analyze Dataset]...")
+    sample_template = generate_sample_template()
+    val_res = validate_dataset(sample_template)
+    assert val_res.is_valid
+    engine = BulkPredictionEngine()
+    analyzed_batch = engine.analyze_dataset(val_res.cleaned_df)
+    assert len(analyzed_batch) == 10
+    assert 'risk_level' in analyzed_batch.columns
+    kpis = engine.compute_summary_kpis(analyzed_batch)
+    assert 'total_records' in kpis
+    pdf_bytes = generate_pdf_report(analyzed_batch, val_res, kpis)
+    assert len(pdf_bytes) > 1000 and pdf_bytes.startswith(b'%PDF')
+    print("  -> Page 3 verified successfully (Validation + Inference + PDF generation).")
     
-    # 3. Fraud Analysis Page
-    print("[Verifying Page 3: Fraud Analysis]...")
+    # 4. Fraud Analysis Page
+    print("[Verifying Page 4: Fraud Analysis]...")
     fraud_df = df[df['isFraud'] == 1]
     normal_df = df[df['isFraud'] == 0]
     fig_fraud_bar = plot_fraud_by_type(df)
     assert fig_fraud_bar is not None
     
-    # Verify px.pie drain chart (the previous px bug!)
     drained_counts = pd.DataFrame({
         "Category": ["Drained to $0.00", "Partial Balance Left"],
         "Fraud": [int((fraud_df['newbalanceOrig'] == 0).sum()), int((fraud_df['newbalanceOrig'] > 0).sum())]
@@ -69,10 +86,10 @@ def verify_all_pages():
         color_discrete_sequence=['#ef4444', '#f59e0b']
     )
     assert fig_drain is not None
-    print("  -> Page 3 (including px.pie drain chart) verified successfully.")
+    print("  -> Page 4 (including px.pie drain chart) verified successfully.")
     
-    # 4. Anomaly Detection Page
-    print("[Verifying Page 4: Anomaly Detection]...")
+    # 5. Anomaly Detection Page
+    print("[Verifying Page 5: Anomaly Detection]...")
     sample_df = df.sample(min(2000, len(df)), random_state=42).copy()
     sample_df['orig_balance_diff'] = sample_df['oldbalanceOrg'] - sample_df['newbalanceOrig']
     
@@ -85,10 +102,10 @@ def verify_all_pages():
     fig_anom = plot_anomaly_scatter(sample_df)
     assert fig_anom is not None
     anom_count = (sample_df['anomaly_status'] == 'Anomalous').sum()
-    print(f"  -> Page 4 verified with {anom_count} real Isolation Forest anomalies.")
+    print(f"  -> Page 5 verified with {anom_count} real Isolation Forest anomalies.")
     
-    # 5. Transaction Prediction Page (Presets)
-    print("[Verifying Page 5: Transaction Prediction Presets]...")
+    # 6. Transaction Prediction Page (Presets)
+    print("[Verifying Page 6: Transaction Prediction Presets]...")
     presets = [
         ("Legitimate Merchant Payment", {
             'step': 14, 'type': 'PAYMENT', 'amount': 85.50,
@@ -112,10 +129,10 @@ def verify_all_pages():
         print(f"  Testing {name}: Risk={res['risk_level']} (Expected={expected_risk}), FraudProb={res['fraud_probability_pct']}%, Anomaly={res['anomaly_status']}")
         assert res['risk_level'] == expected_risk, f"Preset {name} failed: got {res['risk_level']}, expected {expected_risk}"
         assert len(res['risk_indicators']) > 0, f"Preset {name} must have risk indicators"
-    print("  -> Page 5 presets verified successfully.")
+    print("  -> Page 6 presets verified successfully.")
     
-    # 6. Model Performance Page
-    print("[Verifying Page 6: Model Performance]...")
+    # 7. Model Performance Page
+    print("[Verifying Page 7: Model Performance]...")
     for m_name in ["Logistic Regression", "Random Forest", "XGBoost"]:
         m_data = eval_results["models"][m_name]
         fig_cm = plot_confusion_matrix_heatmap(m_data["confusion_matrix"], m_name)
@@ -123,15 +140,15 @@ def verify_all_pages():
         fig_pr = plot_pr_curve_chart(m_data["pr_curve"], m_name, m_data["pr_auc"])
         fig_feat = plot_feature_importance_bar(m_data["all_feature_importances"], m_name)
         assert fig_cm is not None and fig_roc is not None and fig_pr is not None and fig_feat is not None
-    print("  -> Page 6 verified successfully.")
-    
-    # 7. About Project Page
-    print("[Verifying Page 7: About Project]...")
-    assert len(model_metadata["selected_model"]) > 0
-    assert len(anomaly_metadata) > 0
     print("  -> Page 7 verified successfully.")
     
-    print("\nALL 7 PAGES & ALL FEATURES VERIFIED SUCCESSFULLY WITHOUT ERRORS!")
+    # 8. About Project Page
+    print("[Verifying Page 8: About Project]...")
+    assert len(model_metadata["selected_model"]) > 0
+    assert len(anomaly_metadata) > 0
+    print("  -> Page 8 verified successfully.")
+    
+    print("\nALL 8 PAGES & ALL FEATURES VERIFIED SUCCESSFULLY WITHOUT ERRORS!")
 
 if __name__ == "__main__":
     verify_all_pages()
